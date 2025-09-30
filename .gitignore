@@ -1,0 +1,7 @@
+node_modules/
+.DS_Store
+ios/App/build/
+ios/App/Pods/
+*.log
+.env
+AuthKey_*.p8
