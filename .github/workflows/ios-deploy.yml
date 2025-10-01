@@ -12,26 +12,26 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
+      
       - name: Install dependencies
         run: npm ci
-
+      
       - name: Sync Capacitor
         run: npx cap sync ios
-
+      
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
-
-      - name: Install Fastlane (global)
+      
+      - name: Install Fastlane
         run: sudo gem install fastlane -NV
-
+      
       - name: Create Fastlane files
         run: |
           mkdir -p ios/App/fastlane
@@ -45,12 +45,12 @@ jobs:
           # Fastfile
           cat > ios/App/fastlane/Fastfile << 'EOF'
           default_platform(:ios)
-
+          
           platform :ios do
             desc "Build and upload to TestFlight"
             lane :beta do
               setup_ci
-
+              
               api_key = app_store_connect_api_key(
                 key_id: ENV["APP_STORE_KEY_ID"],
                 issuer_id: ENV["APP_STORE_ISSUER_ID"],
@@ -58,7 +58,7 @@ jobs:
                 is_key_content_base64: false,
                 in_house: false
               )
-
+              
               increment_build_number(
                 build_number: latest_testflight_build_number(
                   api_key: api_key,
@@ -66,7 +66,7 @@ jobs:
                 ) + 1,
                 xcodeproj: "App.xcodeproj"
               )
-
+              
               build_app(
                 scheme: "App",
                 workspace: "App.xcworkspace",
@@ -74,11 +74,9 @@ jobs:
                 configuration: "Release",
                 output_directory: "./build",
                 output_name: "WinEdge.ipa",
-                export_xcargs: "-allowProvisioningUpdates"
+                xcargs: "CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']} -allowProvisioningUpdates"
               )
-
-
-
+              
               upload_to_testflight(
                 api_key: api_key,
                 skip_waiting_for_build_processing: true,
@@ -87,7 +85,7 @@ jobs:
             end
           end
           EOF
-
+      
       - name: Build and Deploy
         env:
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
@@ -97,10 +95,7 @@ jobs:
         run: |
           cd ios/App
           fastlane beta
-
-      - name: List IPA files
-        run: ls -R ios/App/build
-
+      
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         if: always()
