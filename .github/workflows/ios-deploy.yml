@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-deploy-ios:
-    runs-on: macos-latest
+    runs-on: macos-14  # Version stable (macos-latest a des problèmes temporaires)
     
     steps:
       - name: Checkout code
@@ -91,7 +91,15 @@ jobs:
                 configuration: "Release",
                 output_directory: "./build",
                 output_name: "WinEdge.ipa",
+                codesigning_identity: "Apple Distribution",
+                export_xcargs: "-allowProvisioningUpdates",
                 export_options: {
+                  method: "app-store",
+                  teamID: ENV["APPLE_TEAM_ID"],
+                  signingStyle: "automatic",
+                  uploadBitcode: false,
+                  uploadSymbols: true,
+                  compileBitcode: false,
                   provisioningProfiles: {
                     "io.winedge.app" => "match AppStore io.winedge.app"
                   }
