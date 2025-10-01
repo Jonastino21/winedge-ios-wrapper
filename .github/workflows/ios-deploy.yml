@@ -7,92 +7,84 @@ on:
 
 jobs:
   build-and-deploy-ios:
-    runs-on: macos-14  # Version stable (macos-latest a des problèmes temporaires)
-    
+    runs-on: macos-14
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Sync Capacitor
         run: npx cap sync ios
-      
-      - name: Setup Ruby
+
+      - name: Setup Ruby and Fastlane
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
           bundler-cache: true
-      
-      - name: Install Fastlane
+
+      - name: Install Fastlane gems
         run: |
           cd ios/App
-          bundle init
-          bundle add fastlane
-      
+          bundle install || bundle add fastlane
+          cd ../..
+
       - name: Setup Code Signing
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          # Configurer automatic signing
           cd ios/App
-          
-          # Activer automatic signing dans le projet
+          # Activer automatic signing et définir le Team ID
           sed -i '' 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' App.xcodeproj/project.pbxproj
           sed -i '' "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = \"$APPLE_TEAM_ID\";/g" App.xcodeproj/project.pbxproj
-          
           cd ../..
-      
+
       - name: Create Fastlane files
         run: |
           mkdir -p ios/App/fastlane
-          
+
           # Créer Appfile
-          cat > ios/App/fastlane/Appfile << 'EOF'
+          cat > ios/App/fastlane/Appfile << EOF
           app_identifier("io.winedge.app")
           team_id(ENV["APPLE_TEAM_ID"])
           EOF
-          
+
           # Créer Fastfile
-          cat > ios/App/fastlane/Fastfile << 'EOF'
+          cat > ios/App/fastlane/Fastfile << EOF
           default_platform(:ios)
-          
+
           platform :ios do
             desc "Build and upload to TestFlight"
             lane :beta do
               setup_ci
-              
+
               api_key = app_store_connect_api_key(
                 key_id: ENV["APP_STORE_KEY_ID"],
                 issuer_id: ENV["APP_STORE_ISSUER_ID"],
                 key_content: Base64.decode64(ENV["APP_STORE_P8"]),
-                is_key_content_base64: false,
-                in_house: false
+                is_key_content_base64: false
               )
-              
+
               increment_build_number(
                 build_number: latest_testflight_build_number(
                   api_key: api_key,
                   app_identifier: "io.winedge.app"
-                ) + 1,
-                xcodeproj: "App.xcodeproj"
+                ) + 1
               )
-              
+
               build_app(
                 scheme: "App",
                 workspace: "App.xcworkspace",
                 export_method: "app-store",
-                configuration: "Release",
                 output_directory: "./build",
                 output_name: "WinEdge.ipa",
-                codesigning_identity: "Apple Distribution",
-                export_xcargs: "-allowProvisioningUpdates",
                 export_options: {
                   method: "app-store",
                   teamID: ENV["APPLE_TEAM_ID"],
@@ -105,7 +97,7 @@ jobs:
                   }
                 }
               )
-              
+
               upload_to_testflight(
                 api_key: api_key,
                 skip_waiting_for_build_processing: true,
@@ -114,7 +106,7 @@ jobs:
             end
           end
           EOF
-      
+
       - name: Build and Deploy
         env:
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
@@ -124,11 +116,10 @@ jobs:
         run: |
           cd ios/App
           bundle exec fastlane beta
-      
+
       - name: List IPA files
         run: ls -R ios/App/build
 
-      
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         if: always()
