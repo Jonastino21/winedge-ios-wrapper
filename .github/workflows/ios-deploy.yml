@@ -74,19 +74,9 @@ jobs:
                 configuration: "Release",
                 output_directory: "./build",
                 output_name: "WinEdge.ipa",
-                export_xcargs: "-allowProvisioningUpdates",
-                export_options: {
-                  method: "app-store",
-                  teamID: ENV["APPLE_TEAM_ID"],
-                  signingStyle: "automatic",
-                  uploadBitcode: false,
-                  uploadSymbols: true,
-                  compileBitcode: false,
-                  provisioningProfiles: {
-                    "io.winedge.app" => "match AppStore io.winedge.app"
-                  }
-                }
+                export_xcargs: "-allowProvisioningUpdates"
               )
+
 
 
               upload_to_testflight(
