@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-deploy-ios:
-    runs-on: macos-14  # Version plus récente
+    runs-on: macos-14  # Version stable (macos-latest a des problèmes temporaires)
     
     steps:
       - name: Checkout code
@@ -17,7 +17,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
       
       - name: Install dependencies
         run: npm ci
@@ -28,25 +27,29 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: '3.1'
           bundler-cache: true
-      
-      - name: Create Gemfile
-        run: |
-          cd ios/App
-          cat > Gemfile << 'EOF'
-          source "https://rubygems.org"
-          
-          gem "fastlane"
-          gem "cocoapods"
-          EOF
       
       - name: Install Fastlane
         run: |
           cd ios/App
-          bundle install
+          bundle init
+          bundle add fastlane
       
-      - name: Create Fastlane configuration
+      - name: Setup Code Signing
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Configurer automatic signing
+          cd ios/App
+          
+          # Activer automatic signing dans le projet
+          sed -i '' 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' App.xcodeproj/project.pbxproj
+          sed -i '' "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = \"$APPLE_TEAM_ID\";/g" App.xcodeproj/project.pbxproj
+          
+          cd ../..
+      
+      - name: Create Fastlane files
         run: |
           mkdir -p ios/App/fastlane
           
@@ -65,7 +68,6 @@ jobs:
             lane :beta do
               setup_ci
               
-              # Configuration API Key
               api_key = app_store_connect_api_key(
                 key_id: ENV["APP_STORE_KEY_ID"],
                 issuer_id: ENV["APP_STORE_ISSUER_ID"],
@@ -74,49 +76,40 @@ jobs:
                 in_house: false
               )
               
-              # Mise à jour des pods
-              cocoapods(
-                clean_install: true,
-                podfile: "./Podfile"
-              )
-              
-              # Incrément du build number
-              current_version = get_version_number(xcodeproj: "App.xcodeproj")
-              latest_build = latest_testflight_build_number(
-                api_key: api_key,
-                app_identifier: "io.winedge.app",
-                version: current_version
-              )
-              
-              new_build_number = latest_build + 1
-              
               increment_build_number(
-                build_number: new_build_number,
+                build_number: latest_testflight_build_number(
+                  api_key: api_key,
+                  app_identifier: "io.winedge.app"
+                ) + 1,
                 xcodeproj: "App.xcodeproj"
               )
               
-              # Build de l'app
               build_app(
                 scheme: "App",
                 workspace: "App.xcworkspace",
                 export_method: "app-store",
                 configuration: "Release",
-                output_directory: "./fastlane/builds",
+                output_directory: "./build",
                 output_name: "WinEdge.ipa",
-                clean: true,
+                codesigning_identity: "Apple Distribution",
+                export_xcargs: "-allowProvisioningUpdates",
                 export_options: {
                   method: "app-store",
                   teamID: ENV["APPLE_TEAM_ID"],
-                  provisioningProfiles: {},
-                  signingStyle: "automatic"
+                  signingStyle: "automatic",
+                  uploadBitcode: false,
+                  uploadSymbols: true,
+                  compileBitcode: false,
+                  provisioningProfiles: {
+                    "io.winedge.app" => "match AppStore io.winedge.app"
+                  }
                 }
               )
               
-              # Upload vers TestFlight
               upload_to_testflight(
                 api_key: api_key,
                 skip_waiting_for_build_processing: true,
-                ipa: "./fastlane/builds/WinEdge.ipa"
+                ipa: "./build/WinEdge.ipa"
               )
             end
           end
@@ -132,20 +125,14 @@ jobs:
           cd ios/App
           bundle exec fastlane beta
       
-      - name: List build outputs (debug)
-        if: always()
-        run: |
-          echo "=== Listing ios/App contents ==="
-          ls -la ios/App/
-          echo "=== Listing fastlane directory ==="
-          ls -la ios/App/fastlane/ || echo "No fastlane directory"
-          echo "=== Looking for IPA files ==="
-          find ios/App -name "*.ipa" -type f || echo "No IPA files found"
+      - name: List IPA files
+        run: ls -R ios/App/build
+
       
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: WinEdge-IPA
-          path: ios/App/fastlane/builds/WinEdge.ipa
+          path: ios/App/build/WinEdge.ipa
           retention-days: 30
