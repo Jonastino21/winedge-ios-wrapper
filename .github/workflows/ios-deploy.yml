@@ -32,16 +32,6 @@ jobs:
       - name: Install Fastlane (global)
         run: sudo gem install fastlane -NV
 
-      - name: Setup Code Signing
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          cd ios/App
-          # Activer automatic signing dans le projet
-          sed -i '' 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' App.xcodeproj/project.pbxproj
-          sed -i '' "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = \"$APPLE_TEAM_ID\";/g" App.xcodeproj/project.pbxproj
-          cd ../..
-
       - name: Create Fastlane files
         run: |
           mkdir -p ios/App/fastlane
