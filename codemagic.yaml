@@ -7,7 +7,7 @@ workflows:
     
     environment:
       groups:
-        - appstore_credentialsAC
+        - appstore_credentials
       
       ios_signing:
         distribution_type: app_store
