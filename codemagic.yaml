@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://static.codemagic.io/codemagic-schema.json
+
 workflows:
   ios-workflow:
     name: iOS Production
@@ -6,6 +7,9 @@ workflows:
     instance_type: mac_mini_m1
     
     environment:
+      groups:
+        - appstore_credentials
+      
       ios_signing:
         distribution_type: app_store
         bundle_identifier: io.winedge.app
