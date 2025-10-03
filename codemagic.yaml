@@ -18,7 +18,7 @@ workflows:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
       
-      xcode: 15.4
+      xcode: latest
       node: 20
     
     triggering:
