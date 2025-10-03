@@ -7,7 +7,7 @@ workflows:
     
     environment:
       groups:
-        - appstore_credentials
+        - appstore_credentialsAC
       
       ios_signing:
         distribution_type: app_store
@@ -52,8 +52,13 @@ workflows:
       - name: Increment build number
         script: |
           cd ios/App
-          BUILD_NUMBER=$(($(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID") + 1))
-          agvtool new-version -all $BUILD_NUMBER
+          # Forcer le build number à 2 (changez ce nombre pour chaque nouvelle version)
+          BUILD_NUMBER=2
+          echo "Setting build number to $BUILD_NUMBER"
+          xcrun agvtool new-version -all $BUILD_NUMBER
+          # Vérifier
+          echo "Current build number:"
+          xcrun agvtool what-version
       
       - name: Build iOS app
         script: |
