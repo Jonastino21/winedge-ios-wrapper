@@ -1,6 +1,7 @@
+# yaml-language-server: $schema=https://static.codemagic.io/codemagic-schema.json
 workflows:
   ios-workflow:
-    name: iOS Production Release
+    name: iOS Production
     max_build_duration: 60
     instance_type: mac_mini_m1
     
@@ -10,9 +11,9 @@ workflows:
         bundle_identifier: io.winedge.app
       
       vars:
+        BUNDLE_ID: "io.winedge.app"
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
-        BUNDLE_ID: "io.winedge.app"
       
       xcode: 15.4
       node: 20
@@ -29,11 +30,11 @@ workflows:
         script: |
           npm ci
       
-      - name: Sync Capacitor
+      - name: Capacitor sync
         script: |
           npx cap sync ios
       
-      - name: Set up keychain
+      - name: Initialize keychain
         script: |
           keychain initialize
       
@@ -57,7 +58,7 @@ workflows:
           BUILD_NUMBER=$(($(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID") + 1))
           agvtool new-version -all $BUILD_NUMBER
       
-      - name: Build iOS
+      - name: Build iOS app
         script: |
           xcode-project build-ipa \
             --workspace "$XCODE_WORKSPACE" \
@@ -65,7 +66,6 @@ workflows:
     
     artifacts:
       - build/ios/ipa/*.ipa
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
     
     publishing:
       email:
@@ -76,5 +76,4 @@ workflows:
           failure: true
       
       app_store_connect:
-        auth: integration
         submit_to_testflight: true
